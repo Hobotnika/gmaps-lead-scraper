@@ -1,36 +1,202 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Google Maps Lead Scraper
+
+A custom lead generation tool built with Next.js 14 that scrapes Google Maps business data and finds emails. Perfect for sales teams, marketers, and business developers looking to build targeted lead lists.
+
+## Features
+
+- Scrape Google Maps business listings based on search queries and locations
+- Extract business information (name, address, phone, website, ratings, reviews)
+- Email discovery and verification
+- Job-based scraping with status tracking
+- Modern, responsive UI built with shadcn/ui and Tailwind CSS
+- Type-safe database operations with Supabase
+
+## Tech Stack
+
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Database:** Supabase (PostgreSQL)
+- **Styling:** Tailwind CSS
+- **UI Components:** shadcn/ui
+- **Scraping:** Apify API
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Node.js 18+ installed
+- A Supabase account and project ([Create one here](https://supabase.com))
+- An Apify account and API token ([Sign up here](https://apify.com))
 
 ## Getting Started
 
-First, run the development server:
+### 1. Clone and Install Dependencies
+
+```bash
+cd gmaps-lead-scraper
+npm install
+```
+
+### 2. Set Up Environment Variables
+
+Copy the `.env.example` file to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Then fill in your actual values:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+# Apify API Token
+APIFY_API_TOKEN=your-apify-api-token
+```
+
+**Finding your Supabase credentials:**
+1. Go to your Supabase project dashboard
+2. Click on "Settings" → "API"
+3. Copy the Project URL and anon/public key
+4. For the service role key, scroll down to "Service Role" section
+
+### 3. Set Up the Database
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy the contents of `supabase/schema.sql`
+4. Paste and run the SQL to create tables, indexes, and policies
+
+Alternatively, you can use the Supabase CLI:
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Link to your project
+supabase link --project-ref your-project-ref
+
+# Run migrations
+supabase db push
+```
+
+### 4. Run the Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+gmaps-lead-scraper/
+├── app/                # Next.js App Router pages and layouts
+├── components/         # React components
+├── lib/               # Utility functions and configurations
+│   └── supabase.ts   # Supabase client utilities
+├── types/            # TypeScript type definitions
+│   └── database.ts   # Database schema types
+├── supabase/         # Database schema and migrations
+│   └── schema.sql    # Initial database schema
+├── public/           # Static assets
+└── ...config files
+```
 
-## Learn More
+## Database Schema
 
-To learn more about Next.js, take a look at the following resources:
+### scrape_jobs
+Stores scraping job information and status.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| search_query | TEXT | The search term (e.g., "restaurants") |
+| location | TEXT | Location to search (e.g., "New York, NY") |
+| max_results | INTEGER | Maximum number of results to scrape |
+| status | TEXT | Job status: pending, running, completed, failed |
+| created_at | TIMESTAMP | Job creation time |
+| completed_at | TIMESTAMP | Job completion time |
+| error_message | TEXT | Error details if job failed |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### leads
+Stores scraped business information.
 
-## Deploy on Vercel
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| job_id | UUID | References scrape_jobs.id |
+| business_name | TEXT | Business name |
+| address | TEXT | Business address |
+| phone | TEXT | Phone number |
+| website | TEXT | Website URL |
+| rating | DECIMAL | Google Maps rating (0-5) |
+| review_count | INTEGER | Number of reviews |
+| category | TEXT | Business category |
+| email | TEXT | Discovered email address |
+| email_found_at | TIMESTAMP | When email was found |
+| created_at | TIMESTAMP | Record creation time |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Adding UI Components
+
+This project uses shadcn/ui. To add new components:
+
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add card
+npx shadcn@latest add table
+```
+
+### Type Safety
+
+All database operations are fully typed using TypeScript. The types are defined in `types/database.ts` and match the Supabase schema.
+
+### Supabase Client Usage
+
+```typescript
+// Client Component
+import { createClient } from '@/lib/supabase'
+const supabase = createClient()
+
+// Server Component
+import { createServerComponentClient } from '@/lib/supabase'
+const supabase = await createServerComponentClient()
+
+// Server Action / Route Handler
+import { createServerActionClient } from '@/lib/supabase'
+const supabase = await createServerActionClient()
+
+// Admin operations (use with caution)
+import { createAdminClient } from '@/lib/supabase'
+const supabase = createAdminClient()
+```
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push your code to GitHub
+2. Import the project in Vercel
+3. Add environment variables in the Vercel dashboard
+4. Deploy
+
+### Other Platforms
+
+Make sure to set all environment variables and ensure your platform supports Next.js 14+.
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
+
+## License
+
+MIT
