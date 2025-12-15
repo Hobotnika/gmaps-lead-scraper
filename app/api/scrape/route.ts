@@ -79,10 +79,11 @@ export async function POST(request: NextRequest) {
     })
 
     console.log('Starting Apify actor run...')
+    console.log('Using actor: compass/crawler-google-places')
 
     try {
       // Run the Apify actor
-      const run = await client.actor('compass/google-maps-scraper').call({
+      const run = await client.actor('compass/crawler-google-places').call({
         searchStringsArray: [keyword],
         locationQuery: location,
         maxCrawledPlacesPerSearch: maxResults,
