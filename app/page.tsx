@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { SearchForm } from '@/components/SearchForm'
 import { LeadsTable } from '@/components/LeadsTable'
 import { StatsCards } from '@/components/StatsCards'
-import type { SearchFormData, Lead, LeadStats } from '@/types'
-import { SAMPLE_LEADS } from '@/types'
+import type { SearchFormData, Lead, LeadStats, ScrapeJobResponse, JobWithLeads } from '@/types'
 
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const stats: LeadStats = {
     totalLeads: leads.length,
@@ -23,13 +23,52 @@ export default function Home() {
 
     setIsLoading(true)
     setHasSearched(true)
+    setError(null)
+    setLeads([])
 
-    // Simulate API call with delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    try {
+      // Call scrape API
+      console.log('Calling scrape API...')
+      const scrapeResponse = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keyword: data.keyword,
+          location: data.location,
+          maxResults: data.maxResults,
+        }),
+      })
 
-    // Use sample data for now
-    setLeads(SAMPLE_LEADS)
-    setIsLoading(false)
+      if (!scrapeResponse.ok) {
+        const errorData = await scrapeResponse.json()
+        throw new Error(errorData.error || 'Failed to start scraping')
+      }
+
+      const scrapeResult: ScrapeJobResponse = await scrapeResponse.json()
+      console.log('Scrape job created:', scrapeResult)
+
+      // Fetch job results
+      console.log('Fetching job results...')
+      const jobResponse = await fetch(`/api/jobs/${scrapeResult.jobId}`)
+
+      if (!jobResponse.ok) {
+        throw new Error('Failed to fetch job results')
+      }
+
+      const jobData: JobWithLeads = await jobResponse.json()
+      console.log('Job data received:', jobData)
+
+      // Update state with results
+      setLeads(jobData.leads)
+      console.log(`Displaying ${jobData.leads.length} leads`)
+    } catch (err) {
+      console.error('Error during scraping:', err)
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -55,8 +94,33 @@ export default function Home() {
           <SearchForm onSubmit={handleSearch} isLoading={isLoading} />
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-red-600 mt-0.5 mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
-        {hasSearched && (
+        {hasSearched && !error && (
           <div className="space-y-6 animate-fade-in">
             {/* Stats Cards */}
             <StatsCards stats={stats} isLoading={isLoading} />

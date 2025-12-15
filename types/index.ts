@@ -25,6 +25,48 @@ export interface LeadStats {
   leadsWithEmails: number
 }
 
+// Apify response types
+export interface ApifyLocation {
+  lat: number
+  lng: number
+}
+
+export interface ApifyPlace {
+  title: string
+  address?: string
+  phone?: string
+  website?: string
+  totalScore?: number
+  reviewsCount?: number
+  categoryName?: string
+  placeId?: string
+  location?: ApifyLocation
+}
+
+// API response types
+export interface ScrapeJobResponse {
+  jobId: string
+  status: string
+  totalLeads: number
+  leadsWithWebsites: number
+  leadsWithEmails: number
+}
+
+export interface JobWithLeads {
+  job: {
+    id: string
+    search_query: string
+    location: string
+    max_results: number
+    status: string
+    created_at: string
+    completed_at: string | null
+    error_message: string | null
+  }
+  leads: Lead[]
+  stats: LeadStats
+}
+
 // Sample data for testing
 export const SAMPLE_LEADS: Lead[] = [
   {
