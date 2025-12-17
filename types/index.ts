@@ -35,10 +35,14 @@ export interface ApifyPlace {
   title: string
   address?: string
   phone?: string
+  phones?: string[]
+  phoneUnformatted?: string
   website?: string
+  emails?: string[]
   totalScore?: number
   reviewsCount?: number
   categoryName?: string
+  categories?: string[]
   placeId?: string
   location?: ApifyLocation
 }

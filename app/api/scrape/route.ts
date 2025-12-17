@@ -79,11 +79,11 @@ export async function POST(request: NextRequest) {
     })
 
     console.log('Starting Apify actor run...')
-    console.log('Using actor: compass/crawler-google-places')
+    console.log('Using email-extracting actor: lukaskrivka/google-maps-with-contact-details')
 
     try {
       // Run the Apify actor
-      const run = await client.actor('compass/crawler-google-places').call({
+      const run = await client.actor('lukaskrivka/google-maps-with-contact-details').call({
         searchStringsArray: [keyword],
         locationQuery: location,
         maxCrawledPlacesPerSearch: maxResults,
@@ -118,17 +118,23 @@ export async function POST(request: NextRequest) {
       }
 
       // Process and save leads
-      const leadsToInsert = items.map((place: ApifyPlace) => ({
-        job_id: job.id,
-        business_name: place.title || 'Unknown Business',
-        address: place.address || null,
-        phone: place.phone || null,
-        website: place.website || null,
-        rating: place.totalScore || null,
-        review_count: place.reviewsCount || null,
-        category: place.categoryName || null,
-        email: null, // Will be filled by email discovery later
-      }))
+      const leadsToInsert = items.map((place: ApifyPlace) => {
+        // Extract first email from emails array if available
+        const email = place.emails?.[0] || null
+
+        return {
+          job_id: job.id,
+          business_name: place.title || 'Unknown Business',
+          address: place.address || null,
+          phone: place.phones?.[0] || place.phoneUnformatted || place.phone || null,
+          website: place.website || null,
+          rating: place.totalScore || null,
+          review_count: place.reviewsCount || null,
+          category: place.categories?.[0] || place.categoryName || null,
+          email: email,
+          email_found_at: email ? new Date().toISOString() : null,
+        }
+      })
 
       console.log(`Inserting ${leadsToInsert.length} leads into database...`)
 
