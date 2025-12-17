@@ -1,9 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { Download } from 'lucide-react'
 import { SearchForm } from '@/components/SearchForm'
 import { LeadsTable } from '@/components/LeadsTable'
 import { StatsCards } from '@/components/StatsCards'
+import { Button } from '@/components/ui/button'
+import { exportLeadsToCSV } from '@/lib/exportToCSV'
 import type { SearchFormData, Lead, LeadStats, ScrapeJobResponse, JobWithLeads } from '@/types'
 
 export default function Home() {
@@ -11,6 +14,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [jobDetails, setJobDetails] = useState<{ keyword: string; location: string } | null>(null)
 
   const stats: LeadStats = {
     totalLeads: leads.length,
@@ -25,6 +29,7 @@ export default function Home() {
     setHasSearched(true)
     setError(null)
     setLeads([])
+    setJobDetails({ keyword: data.keyword, location: data.location })
 
     try {
       // Call scrape API
@@ -68,6 +73,21 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleExportCSV = () => {
+    if (leads.length === 0 || !jobDetails) {
+      console.error('No leads to export or missing job details')
+      return
+    }
+
+    try {
+      exportLeadsToCSV(leads, jobDetails)
+      console.log('CSV export successful')
+    } catch (err) {
+      console.error('Failed to export CSV:', err)
+      setError(err instanceof Error ? err.message : 'Failed to export CSV')
     }
   }
 
@@ -124,6 +144,20 @@ export default function Home() {
           <div className="space-y-6 animate-fade-in">
             {/* Stats Cards */}
             <StatsCards stats={stats} isLoading={isLoading} />
+
+            {/* Export Button */}
+            {leads.length > 0 && !isLoading && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleExportCSV}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export to CSV
+                </Button>
+              </div>
+            )}
 
             {/* Leads Table */}
             <LeadsTable leads={leads} isLoading={isLoading} />
