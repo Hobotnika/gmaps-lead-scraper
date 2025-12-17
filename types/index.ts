@@ -16,6 +16,8 @@ export interface Lead {
   rating: number | null
   reviewCount: number | null
   category: string | null
+  placeId?: string | null
+  lastUpdated?: string | null
 }
 
 // Stats types
@@ -52,8 +54,22 @@ export interface ScrapeJobResponse {
   jobId: string
   status: string
   totalLeads: number
+  insertedCount?: number
+  updatedCount?: number
   leadsWithWebsites: number
   leadsWithEmails: number
+}
+
+// Job types for history
+export interface Job {
+  id: string
+  search_query: string
+  location: string
+  max_results: number
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  created_at: string
+  completed_at: string | null
+  error_message: string | null
 }
 
 export interface JobWithLeads {

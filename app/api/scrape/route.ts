@@ -117,43 +117,95 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Process and save leads
-      const leadsToInsert = items.map((place: ApifyPlace) => {
-        // Extract first email from emails array if available
-        const email = place.emails?.[0] || null
+      // Process and save leads with duplicate detection
+      console.log(`Processing ${items.length} places with duplicate detection...`)
 
-        return {
-          job_id: job.id,
+      let insertedCount = 0
+      let updatedCount = 0
+      const allLeads: any[] = []
+
+      for (const place of items) {
+        const placeId = place.placeId || null
+        const email = place.emails?.[0] || null
+        const phone = place.phones?.[0] || place.phoneUnformatted || place.phone || null
+        const website = place.website || null
+        const category = place.categories?.[0] || place.categoryName || null
+
+        const leadData = {
           business_name: place.title || 'Unknown Business',
           address: place.address || null,
-          phone: place.phones?.[0] || place.phoneUnformatted || place.phone || null,
-          website: place.website || null,
+          phone,
+          website,
           rating: place.totalScore || null,
           review_count: place.reviewsCount || null,
-          category: place.categories?.[0] || place.categoryName || null,
-          email: email,
+          category,
+          email,
           email_found_at: email ? new Date().toISOString() : null,
+          place_id: placeId,
         }
-      })
 
-      console.log(`Inserting ${leadsToInsert.length} leads into database...`)
+        // Check if lead already exists by place_id
+        if (placeId) {
+          const { data: existingLead } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('place_id', placeId)
+            .single()
 
-      const { data: insertedLeads, error: leadsError } = await supabase
-        .from('leads')
-        .insert(leadsToInsert)
-        .select()
+          if (existingLead) {
+            // Update existing lead, keeping best data
+            const { data: updatedLead, error: updateError } = await supabase
+              .from('leads')
+              .update({
+                business_name: leadData.business_name,
+                address: leadData.address || existingLead.address,
+                phone: phone || existingLead.phone,
+                website: website || existingLead.website,
+                email: email || existingLead.email,
+                email_found_at: email ? new Date().toISOString() : existingLead.email_found_at,
+                rating: leadData.rating,
+                review_count: leadData.review_count,
+                category: category || existingLead.category,
+                last_updated: new Date().toISOString(),
+              })
+              .eq('id', existingLead.id)
+              .select()
+              .single()
 
-      if (leadsError) {
-        console.error('Failed to insert leads:', leadsError)
-        throw new Error('Failed to save leads to database')
+            if (updateError) {
+              console.error('Failed to update lead:', updateError)
+            } else {
+              updatedCount++
+              allLeads.push(updatedLead)
+            }
+            continue
+          }
+        }
+
+        // Insert new lead
+        const { data: newLead, error: insertError } = await supabase
+          .from('leads')
+          .insert({
+            ...leadData,
+            job_id: job.id,
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          console.error('Failed to insert lead:', insertError)
+        } else {
+          insertedCount++
+          allLeads.push(newLead)
+        }
       }
 
-      console.log(`Successfully inserted ${insertedLeads?.length || 0} leads`)
+      console.log(`Inserted ${insertedCount} new leads, updated ${updatedCount} existing leads`)
 
       // Calculate stats
-      const totalLeads = insertedLeads?.length || 0
-      const leadsWithWebsites = insertedLeads?.filter((lead) => lead.website).length || 0
-      const leadsWithEmails = insertedLeads?.filter((lead) => lead.email).length || 0
+      const totalLeads = allLeads.length
+      const leadsWithWebsites = allLeads.filter((lead) => lead.website).length
+      const leadsWithEmails = allLeads.filter((lead) => lead.email).length
 
       // Update job status to completed
       await supabase
@@ -167,6 +219,8 @@ export async function POST(request: NextRequest) {
       console.log('Job completed successfully:', {
         jobId: job.id,
         totalLeads,
+        insertedCount,
+        updatedCount,
         leadsWithWebsites,
         leadsWithEmails,
       })
@@ -175,6 +229,8 @@ export async function POST(request: NextRequest) {
         jobId: job.id,
         status: 'completed',
         totalLeads,
+        insertedCount,
+        updatedCount,
         leadsWithWebsites,
         leadsWithEmails,
       })

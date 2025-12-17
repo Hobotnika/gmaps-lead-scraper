@@ -4,12 +4,15 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 
 ## Features
 
-- Scrape Google Maps business listings based on search queries and locations
-- Extract business information (name, address, phone, website, ratings, reviews)
-- Email discovery and verification
-- Job-based scraping with status tracking
-- Modern, responsive UI built with shadcn/ui and Tailwind CSS
-- Type-safe database operations with Supabase
+- **Smart Scraping:** Extract Google Maps business listings based on search queries and locations
+- **Comprehensive Data:** Get business name, address, phone, website, ratings, reviews, and category
+- **Email Discovery:** Automatically find emails from business websites in a single scrape
+- **Duplicate Detection:** Intelligent deduplication prevents the same business from being saved twice
+- **Job History:** View and manage all past scrapes with detailed statistics
+- **CSV Export:** Download leads as CSV for easy import into CRM tools
+- **Job-Based Scraping:** Track scraping status and processing time
+- **Modern UI:** Clean, responsive interface built with shadcn/ui and Tailwind CSS
+- **Type-Safe:** Fully typed with TypeScript for better developer experience
 
 ## Tech Stack
 
@@ -65,10 +68,27 @@ APIFY_API_TOKEN=your-apify-api-token
 
 ### 3. Set Up the Database
 
+#### Initial Schema Setup
+
 1. Go to your Supabase project dashboard
 2. Navigate to the SQL Editor
 3. Copy the contents of `supabase/schema.sql`
 4. Paste and run the SQL to create tables, indexes, and policies
+
+#### Run Deduplication Migration
+
+After setting up the initial schema, run the deduplication migration to add unique constraints and tracking:
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy the contents of `supabase/add_place_id_unique.sql`
+4. Paste and run the SQL to add deduplication fields
+
+This migration adds:
+- `place_id` field to uniquely identify businesses
+- `last_updated` timestamp for tracking changes
+- Unique constraint to prevent duplicate leads
+- Auto-update trigger for timestamp
 
 Alternatively, you can use the Supabase CLI:
 
@@ -127,7 +147,7 @@ Stores scraping job information and status.
 | error_message | TEXT | Error details if job failed |
 
 ### leads
-Stores scraped business information.
+Stores scraped business information with deduplication.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -142,7 +162,11 @@ Stores scraped business information.
 | category | TEXT | Business category |
 | email | TEXT | Discovered email address |
 | email_found_at | TIMESTAMP | When email was found |
+| place_id | TEXT | Google Maps place ID (unique) |
+| last_updated | TIMESTAMP | Last update timestamp |
 | created_at | TIMESTAMP | Record creation time |
+
+**Note:** The `place_id` field has a unique constraint to prevent duplicate businesses. When the same business is scraped again, the existing record is updated instead of creating a duplicate.
 
 ## Development
 
