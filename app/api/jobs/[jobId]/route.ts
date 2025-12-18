@@ -1,21 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
-import type { Lead, LeadStats } from '@/types'
 
+/**
+ * GET /api/jobs/[jobId]
+ * Fetches a specific job with all its leads
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ jobId: string }> }
+  context: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const { jobId } = await params
+    const { jobId } = await context.params
 
-    if (!jobId) {
-      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 })
+    // Validate jobId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(jobId)) {
+      return NextResponse.json(
+        { error: 'Invalid job ID format' },
+        { status: 400 }
+      )
     }
 
-    console.log('Fetching job details for:', jobId)
-
-    // Initialize Supabase admin client
     const supabase = createAdminClient()
 
     // Fetch job details
@@ -23,14 +28,20 @@ export async function GET(
       .from('scrape_jobs')
       .select('*')
       .eq('id', jobId)
-      .single()
+      .maybeSingle()
 
     if (jobError || !job) {
       console.error('Job not found:', jobError)
-      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Job not found' },
+        { status: 404 }
+      )
     }
 
-    console.log('Job found:', job.id, 'Status:', job.status)
+    // Type assertion for job to work around Supabase type inference issue
+    const jobData = job as any
+
+    console.log('Job found:', jobData.id, 'Status:', jobData.status)
 
     // Fetch all leads for this job
     const { data: leads, error: leadsError } = await supabase
@@ -47,51 +58,49 @@ export async function GET(
       )
     }
 
-    console.log(`Retrieved ${leads?.length || 0} leads`)
-
-    // Format leads to match frontend Lead interface
-    const formattedLeads: Lead[] =
-      leads?.map((lead) => ({
-        id: lead.id,
-        businessName: lead.business_name,
-        address: lead.address,
-        phone: lead.phone,
-        website: lead.website,
-        email: lead.email,
-        rating: lead.rating,
-        reviewCount: lead.review_count,
-        category: lead.category,
-      })) || []
+    // Transform database format to API format
+    const leadsData = leads as any[]
+    const transformedLeads = (leadsData || []).map((lead: any) => ({
+      id: lead.id,
+      businessName: lead.business_name,
+      address: lead.address,
+      phone: lead.phone,
+      website: lead.website,
+      email: lead.email,
+      rating: lead.rating,
+      reviewCount: lead.review_count,
+      category: lead.category,
+      placeId: lead.place_id,
+      lastUpdated: lead.last_updated,
+    }))
 
     // Calculate stats
-    const stats: LeadStats = {
-      totalLeads: formattedLeads.length,
-      leadsWithWebsites: formattedLeads.filter((lead) => lead.website).length,
-      leadsWithEmails: formattedLeads.filter((lead) => lead.email).length,
-    }
+    const totalLeads = transformedLeads.length
+    const leadsWithWebsites = transformedLeads.filter((lead) => lead.website).length
+    const leadsWithEmails = transformedLeads.filter((lead) => lead.email).length
 
     return NextResponse.json({
       job: {
-        id: job.id,
-        search_query: job.search_query,
-        location: job.location,
-        max_results: job.max_results,
-        status: job.status,
-        created_at: job.created_at,
-        completed_at: job.completed_at,
-        error_message: job.error_message,
+        id: jobData.id,
+        search_query: jobData.search_query,
+        location: jobData.location,
+        max_results: jobData.max_results,
+        status: jobData.status,
+        created_at: jobData.created_at,
+        completed_at: jobData.completed_at,
+        error_message: jobData.error_message,
       },
-      leads: formattedLeads,
-      stats,
+      leads: transformedLeads,
+      stats: {
+        totalLeads,
+        leadsWithWebsites,
+        leadsWithEmails,
+      },
     })
   } catch (error) {
-    console.error('Unexpected error in jobs API:', error)
-
+    console.error('Unexpected error fetching job:', error)
     return NextResponse.json(
-      {
-        error: 'An unexpected error occurred',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'An unexpected error occurred' },
       { status: 500 }
     )
   }

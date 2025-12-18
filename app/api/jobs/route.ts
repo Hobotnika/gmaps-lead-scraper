@@ -24,8 +24,9 @@ export async function GET() {
     }
 
     // Fetch lead counts for each job
+    const jobsData = jobs as any[]
     const jobsWithStats = await Promise.all(
-      jobs.map(async (job) => {
+      (jobsData || []).map(async (job: any) => {
         const { count: totalLeads } = await supabase
           .from('leads')
           .select('*', { count: 'exact', head: true })

@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         location,
         max_results: maxResults,
         status: 'pending',
-      })
+      } as any)
       .select()
       .single()
 
@@ -65,13 +65,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Job created in database:', job.id)
+    const jobData = job as any
+    console.log('Job created in database:', jobData.id)
 
     // Update job status to running
-    await supabase
-      .from('scrape_jobs')
+    await (supabase
+      .from('scrape_jobs') as any)
       .update({ status: 'running' })
-      .eq('id', job.id)
+      .eq('id', jobData.id)
 
     // Initialize Apify client
     const client = new ApifyClient({
@@ -100,16 +101,16 @@ export async function POST(request: NextRequest) {
 
       if (items.length === 0) {
         // No results found, but mark job as completed
-        await supabase
-          .from('scrape_jobs')
+        await (supabase
+          .from('scrape_jobs') as any)
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
-          .eq('id', job.id)
+          .eq('id', jobData.id)
 
         return NextResponse.json({
-          jobId: job.id,
+          jobId: jobData.id,
           status: 'completed',
           totalLeads: 0,
           leadsWithWebsites: 0,
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
       let updatedCount = 0
       const allLeads: any[] = []
 
-      for (const place of items) {
+      const placesData = items as unknown as ApifyPlace[]
+      for (const place of placesData) {
         const placeId = place.placeId || null
         const email = place.emails?.[0] || null
         const phone = place.phones?.[0] || place.phoneUnformatted || place.phone || null
@@ -146,16 +148,16 @@ export async function POST(request: NextRequest) {
 
         // Check if lead already exists by place_id
         if (placeId) {
-          const { data: existingLead } = await supabase
-            .from('leads')
+          const { data: existingLead } = await (supabase
+            .from('leads') as any)
             .select('*')
             .eq('place_id', placeId)
             .single()
 
           if (existingLead) {
             // Update existing lead, keeping best data
-            const { data: updatedLead, error: updateError } = await supabase
-              .from('leads')
+            const { data: updatedLead, error: updateError } = await (supabase
+              .from('leads') as any)
               .update({
                 business_name: leadData.business_name,
                 address: leadData.address || existingLead.address,
@@ -183,11 +185,11 @@ export async function POST(request: NextRequest) {
         }
 
         // Insert new lead
-        const { data: newLead, error: insertError } = await supabase
-          .from('leads')
+        const { data: newLead, error: insertError } = await (supabase
+          .from('leads') as any)
           .insert({
             ...leadData,
-            job_id: job.id,
+            job_id: jobData.id,
           })
           .select()
           .single()
@@ -208,16 +210,16 @@ export async function POST(request: NextRequest) {
       const leadsWithEmails = allLeads.filter((lead) => lead.email).length
 
       // Update job status to completed
-      await supabase
-        .from('scrape_jobs')
+      await (supabase
+        .from('scrape_jobs') as any)
         .update({
           status: 'completed',
           completed_at: new Date().toISOString(),
         })
-        .eq('id', job.id)
+        .eq('id', jobData.id)
 
       console.log('Job completed successfully:', {
-        jobId: job.id,
+        jobId: jobData.id,
         totalLeads,
         insertedCount,
         updatedCount,
@@ -226,7 +228,7 @@ export async function POST(request: NextRequest) {
       })
 
       return NextResponse.json({
-        jobId: job.id,
+        jobId: jobData.id,
         status: 'completed',
         totalLeads,
         insertedCount,
@@ -242,14 +244,14 @@ export async function POST(request: NextRequest) {
         apifyError instanceof Error ? apifyError.message : 'Unknown Apify error'
 
       // Update job status to failed
-      await supabase
-        .from('scrape_jobs')
+      await (supabase
+        .from('scrape_jobs') as any)
         .update({
           status: 'failed',
           error_message: errorMessage,
           completed_at: new Date().toISOString(),
         })
-        .eq('id', job.id)
+        .eq('id', jobData.id)
 
       return NextResponse.json(
         {

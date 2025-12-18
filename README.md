@@ -206,16 +206,130 @@ const supabase = createAdminClient()
 
 ## Deployment
 
-### Vercel (Recommended)
+### Vercel Deployment (Recommended)
 
-1. Push your code to GitHub
-2. Import the project in Vercel
-3. Add environment variables in the Vercel dashboard
-4. Deploy
+#### Pre-Deployment Checklist
+
+✅ **Verify Local Build Works**
+```bash
+npm run build
+npm start
+# Test at http://localhost:3000
+```
+
+✅ **Database Migration Applied**
+- Initial schema: `supabase/schema.sql`
+- Deduplication migration: `supabase/add_place_id_unique.sql`
+
+✅ **Environment Variables Ready**
+- All secrets prepared (Supabase keys, Apify token)
+- NEVER commit `.env.local` to git
+
+#### Step-by-Step Deployment
+
+**1. Push to GitHub**
+```bash
+git add .
+git commit -m "Prepare for production deployment"
+git push origin main
+```
+
+**2. Import Project to Vercel**
+- Go to [vercel.com/new](https://vercel.com/new)
+- Click "Import Git Repository"
+- Select your `gmaps-lead-scraper` repository
+- Click "Import"
+
+**3. Configure Environment Variables**
+
+In the Vercel dashboard, add these environment variables:
+
+| Variable | Where to Find | Example |
+|----------|---------------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Settings → API | `https://xxxxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Settings → API → Project API keys → anon/public | `eyJhbGciOi...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → Project API keys → service_role | `eyJhbGciOi...` |
+| `APIFY_API_TOKEN` | Apify Dashboard → Settings → Integrations | `apify_api_...` |
+
+**How to add in Vercel:**
+1. Go to your project in Vercel
+2. Click "Settings" → "Environment Variables"
+3. Add each variable:
+   - Name: `NEXT_PUBLIC_SUPABASE_URL`
+   - Value: `your-actual-value`
+   - Environment: Select "Production", "Preview", and "Development"
+4. Click "Save"
+5. Repeat for all 4 variables
+
+**4. Deploy**
+- Click "Deploy" button
+- Wait for build to complete (~2-3 minutes)
+- Visit your deployment URL
+
+**5. Post-Deployment Verification**
+
+✅ **Test Core Features:**
+1. Visit your deployed URL
+2. Run a test scrape: "Coffee Shops" in "New York" (10 results)
+3. Verify results appear in table
+4. Check emails are extracted
+5. Export to CSV
+6. Navigate to `/history` - verify job appears
+7. View job detail page
+8. Run same search again - verify duplicate detection
+
+✅ **Check Logs:**
+- Vercel Dashboard → Your Project → Deployments → Click latest → "Functions" tab
+- Look for: "Inserted X new leads, updated Y existing leads"
+
+#### Troubleshooting
+
+**Build Fails:**
+- Check Vercel build logs
+- Verify all environment variables are set correctly
+- Ensure Node.js version is compatible (18+)
+
+**Database Connection Errors:**
+- Verify Supabase URL and keys are correct
+- Check Supabase project is active
+- Ensure RLS policies allow access
+
+**Apify Errors:**
+- Verify API token is valid
+- Check Apify account has credits
+- Review Apify actor availability
+
+**No Results Showing:**
+- Check browser console for errors
+- Verify API routes are working: `/api/scrape`, `/api/jobs`
+- Check Supabase tables have data
+
+#### Production Best Practices
+
+**Security:**
+- ✅ Never commit `.env.local` or secrets
+- ✅ Use Supabase RLS policies
+- ✅ Rotate service role key if exposed
+- ✅ Monitor Apify usage/costs
+
+**Performance:**
+- ✅ Monitor Vercel function execution times
+- ✅ Check Supabase query performance
+- ✅ Consider caching for frequently accessed jobs
+
+**Monitoring:**
+- ✅ Set up Vercel Analytics
+- ✅ Monitor Supabase usage
+- ✅ Track Apify credits
 
 ### Other Platforms
 
-Make sure to set all environment variables and ensure your platform supports Next.js 14+.
+For platforms other than Vercel:
+- Ensure Node.js 18+ support
+- Set all 4 environment variables
+- Configure build command: `npm run build`
+- Configure start command: `npm start`
+- Ensure PostgreSQL database (Supabase) is accessible
 
 ## Contributing
 
