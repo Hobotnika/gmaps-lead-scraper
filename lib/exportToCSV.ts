@@ -66,6 +66,7 @@ export function exportLeadsToCSV(leads: Lead[], jobDetails: JobDetails): void {
     'Phone',
     'Website',
     'Email',
+    'Decision Makers',
     'Rating',
     'Reviews',
     'Category',
@@ -86,12 +87,26 @@ export function exportLeadsToCSV(leads: Lead[], jobDetails: JobDetails): void {
     // Get current date for "Date Scraped" column
     const dateScrapped = new Date().toISOString().split('T')[0]
 
+    // Format decision makers: "John Smith (CEO): john@company.com ✓ | Jane Doe (Founder): jane@company.com ✓"
+    let decisionMakers = ''
+    if (lead.contacts && lead.contacts.length > 0) {
+      decisionMakers = lead.contacts
+        .filter(contact => contact.email) // Only include contacts with emails
+        .map(contact => {
+          const title = contact.title ? ` (${contact.title})` : ''
+          const status = contact.emailStatus === 'valid' ? ' ✓' : contact.emailStatus === 'catch-all' ? ' ~' : ''
+          return `${contact.fullName}${title}: ${contact.email}${status}`
+        })
+        .join(' | ')
+    }
+
     return [
       escapeCSVField(lead.businessName),
       escapeCSVField(lead.address),
       escapeCSVField(lead.phone),
       escapeCSVField(lead.website),
       escapeCSVField(email),
+      escapeCSVField(decisionMakers),
       escapeCSVField(rating),
       escapeCSVField(reviews),
       escapeCSVField(lead.category),

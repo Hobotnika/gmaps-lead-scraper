@@ -5,6 +5,18 @@ export interface SearchFormData {
   maxResults: number
 }
 
+// Contact (Decision Maker) types
+export interface Contact {
+  id: string
+  leadId: string
+  fullName: string
+  title: string | null
+  email: string | null
+  emailStatus: 'valid' | 'invalid' | 'catch-all' | 'unknown' | 'pending' | null
+  source: 'team_page' | 'google_search'
+  createdAt: string
+}
+
 // Lead data types
 export interface Lead {
   id: string
@@ -18,6 +30,8 @@ export interface Lead {
   category: string | null
   placeId?: string | null
   lastUpdated?: string | null
+  contactsFound?: number
+  contacts?: Contact[]
 }
 
 // Stats types
@@ -25,6 +39,17 @@ export interface LeadStats {
   totalLeads: number
   leadsWithWebsites: number
   leadsWithEmails: number
+  leadsWithContacts?: number
+}
+
+// Contact discovery response
+export interface ContactDiscoveryResponse {
+  success: boolean
+  contactsFound: number
+  emailsValidated: number
+  quotaRemaining: number | null
+  leadsProcessed: number
+  errors?: string[]
 }
 
 // Apify response types

@@ -7,9 +7,12 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 - **Smart Scraping:** Extract Google Maps business listings based on search queries and locations
 - **Comprehensive Data:** Get business name, address, phone, website, ratings, reviews, and category
 - **Email Discovery:** Automatically find emails from business websites in a single scrape
+- **Decision Maker Discovery:** Find key contacts (CEO, Founder, etc.) from team pages AND Google search
+- **Dual-Source Contact Discovery:** Combine team page scraping with Google search for maximum coverage
+- **Email Validation:** Validate emails using ZeroBounce API to ensure deliverability
 - **Duplicate Detection:** Intelligent deduplication prevents the same business from being saved twice
 - **Job History:** View and manage all past scrapes with detailed statistics
-- **CSV Export:** Download leads as CSV for easy import into CRM tools
+- **CSV Export:** Download leads as CSV with decision makers for easy import into CRM tools
 - **Job-Based Scraping:** Track scraping status and processing time
 - **Modern UI:** Clean, responsive interface built with shadcn/ui and Tailwind CSS
 - **Type-Safe:** Fully typed with TypeScript for better developer experience
@@ -22,6 +25,9 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui
 - **Scraping:** Apify API
+- **Email Validation:** ZeroBounce API
+- **Google Search:** Serper API
+- **Web Scraping:** Cheerio + Axios
 
 ## Prerequisites
 
@@ -30,6 +36,8 @@ Before you begin, ensure you have:
 - Node.js 18+ installed
 - A Supabase account and project ([Create one here](https://supabase.com))
 - An Apify account and API token ([Sign up here](https://apify.com))
+- (Optional) A ZeroBounce account for email validation ([Sign up here](https://www.zerobounce.net) - 100 free validations/month)
+- (Optional) A Serper account for Google search ([Sign up here](https://serper.dev/signup) - 2,500 free searches/month)
 
 ## Getting Started
 
@@ -58,6 +66,12 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 
 # Apify API Token
 APIFY_API_TOKEN=your-apify-api-token
+
+# ZeroBounce API Key (Optional - for email validation)
+ZEROBOUNCE_API_KEY=your-zerobounce-api-key
+
+# Serper API Key (Optional - for Google search to find decision makers)
+SERPER_API_KEY=your-serper-api-key
 ```
 
 **Finding your Supabase credentials:**
@@ -65,6 +79,24 @@ APIFY_API_TOKEN=your-apify-api-token
 2. Click on "Settings" → "API"
 3. Copy the Project URL and anon/public key
 4. For the service role key, scroll down to "Service Role" section
+
+**Finding your ZeroBounce API key (Optional):**
+1. Sign up for a free ZeroBounce account at [zerobounce.net](https://www.zerobounce.net)
+2. You'll get 100 free email validations per month
+3. Go to your ZeroBounce dashboard
+4. Navigate to "API" section or "Settings"
+5. Copy your API key
+
+**Note:** The decision maker discovery feature will work without ZeroBounce, but emails won't be validated. Generic email extraction from business websites will continue to work normally.
+
+**Finding your Serper API key (Optional):**
+1. Sign up for a free Serper account at [serper.dev/signup](https://serper.dev/signup)
+2. You'll get 2,500 free Google searches per month
+3. Go to your Serper dashboard
+4. Navigate to "API Key" section
+5. Copy your API key
+
+**Note:** Google search enhances contact discovery by finding decision makers that may not be listed on business websites. Without Serper, only team page scraping will be used.
 
 ### 3. Set Up the Database
 
@@ -75,9 +107,11 @@ APIFY_API_TOKEN=your-apify-api-token
 3. Copy the contents of `supabase/schema.sql`
 4. Paste and run the SQL to create tables, indexes, and policies
 
-#### Run Deduplication Migration
+#### Run Database Migrations
 
-After setting up the initial schema, run the deduplication migration to add unique constraints and tracking:
+After setting up the initial schema, run these migrations in order:
+
+**1. Deduplication Migration**
 
 1. Go to your Supabase project dashboard
 2. Navigate to the SQL Editor
@@ -89,6 +123,29 @@ This migration adds:
 - `last_updated` timestamp for tracking changes
 - Unique constraint to prevent duplicate leads
 - Auto-update trigger for timestamp
+
+**2. Contacts Table Migration**
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy the contents of `supabase/add_contacts_table.sql`
+4. Paste and run the SQL to create the contacts table
+
+This migration adds:
+- `contacts` table for storing decision makers
+- `contacts_found` counter on leads table
+- Automatic contact count updates via trigger
+
+**3. Contact Source Tracking Migration**
+
+1. Go to your Supabase project dashboard
+2. Navigate to the SQL Editor
+3. Copy the contents of `supabase/add_contact_source.sql`
+4. Paste and run the SQL to add source tracking
+
+This migration adds:
+- `source` field to track where contact was found (team_page or google_search)
+- Index for faster filtering by source
 
 Alternatively, you can use the Supabase CLI:
 
@@ -164,9 +221,92 @@ Stores scraped business information with deduplication.
 | email_found_at | TIMESTAMP | When email was found |
 | place_id | TEXT | Google Maps place ID (unique) |
 | last_updated | TIMESTAMP | Last update timestamp |
+| contacts_found | INTEGER | Number of decision makers found |
 | created_at | TIMESTAMP | Record creation time |
 
 **Note:** The `place_id` field has a unique constraint to prevent duplicate businesses. When the same business is scraped again, the existing record is updated instead of creating a duplicate.
+
+### contacts
+Stores decision maker contact information for each lead.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| lead_id | UUID | References leads.id |
+| full_name | TEXT | Contact's full name |
+| title | TEXT | Job title (CEO, Founder, etc.) |
+| email | TEXT | Contact's email address |
+| email_status | TEXT | Validation status: valid, invalid, catch-all, unknown, pending |
+| source | TEXT | Where contact was found: team_page or google_search |
+| created_at | TIMESTAMP | Record creation time |
+| updated_at | TIMESTAMP | Last update timestamp |
+
+**Note:** Decision makers are discovered through dual sources:
+1. **Team Page Scraping:** Extracts contacts from /team, /about pages
+2. **Google Search:** Finds decision makers via targeted queries using Serper API
+
+Emails are validated using ZeroBounce API if configured.
+
+## Usage
+
+### Basic Lead Scraping
+
+1. Enter a search term (e.g., "coffee shops", "restaurants", "plumbers")
+2. Enter a location (e.g., "New York, NY", "San Francisco")
+3. Choose max results (10-100)
+4. Click "Search" and wait for results
+5. Generic emails (info@, hello@, contact@) are automatically extracted
+
+### Finding Decision Makers
+
+After running a scrape:
+
+1. Click "Find Decision Makers" button above the results table
+2. The system will use TWO sources to maximize contact discovery:
+
+   **Source 1: Team Page Scraping**
+   - Visits team/about pages for businesses with websites
+   - Extracts structured contact information
+   - More reliable for companies with good websites
+
+   **Source 2: Google Search (via Serper)**
+   - Searches Google for "founders of [Business]", "[Business] CEO", etc.
+   - Finds decision makers not listed on websites
+   - Works even for businesses without websites
+
+3. For each contact found:
+   - Generate 8 email variations (firstname@, first.last@, jsmith@, etc.)
+   - Validate emails using ZeroBounce API (if configured)
+   - Save contacts with valid emails to database
+4. View decision makers in the "Decision Makers" column
+   - Source indicator shows [Team] or [Google]
+5. Export to CSV to get all data including decision makers
+
+**Email Validation Status:**
+- ✓ (Green badge) = Valid email
+- ~ (Gray badge) = Catch-all domain (email might work)
+- No badge = Not validated or pending
+
+**ZeroBounce Credits:**
+- Free tier: 100 validations/month
+- The system checks remaining credits before starting
+- Warns when credits are low (< 10 remaining)
+
+**Serper Credits:**
+- Free tier: 2,500 Google searches/month
+- 3 searches per business (founders, CEO, managers)
+- Significantly increases contact discovery rate
+
+### CSV Export
+
+Click "Export to CSV" to download your leads with:
+- Business information (name, address, phone, website)
+- Generic email (if found)
+- Decision makers with titles and validated emails
+- Ratings and review counts
+- Date scraped
+
+Format: `leads_{keyword}_{location}_{date}.csv`
 
 ## Development
 
@@ -250,6 +390,8 @@ In the Vercel dashboard, add these environment variables:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Settings → API → Project API keys → anon/public | `eyJhbGciOi...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → Project API keys → service_role | `eyJhbGciOi...` |
 | `APIFY_API_TOKEN` | Apify Dashboard → Settings → Integrations | `apify_api_...` |
+| `ZEROBOUNCE_API_KEY` (Optional) | ZeroBounce Dashboard → API Settings | `your-api-key...` |
+| `SERPER_API_KEY` (Optional) | Serper Dashboard → API Key | `your-api-key...` |
 
 **How to add in Vercel:**
 1. Go to your project in Vercel
@@ -259,7 +401,7 @@ In the Vercel dashboard, add these environment variables:
    - Value: `your-actual-value`
    - Environment: Select "Production", "Preview", and "Development"
 4. Click "Save"
-5. Repeat for all 4 variables
+5. Repeat for all variables (4 required + 2 optional for enhanced decision maker discovery)
 
 **4. Deploy**
 - Click "Deploy" button

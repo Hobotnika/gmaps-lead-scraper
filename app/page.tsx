@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, Users } from 'lucide-react'
 import { SearchForm } from '@/components/SearchForm'
 import { LeadsTable } from '@/components/LeadsTable'
 import { StatsCards } from '@/components/StatsCards'
 import { Button } from '@/components/ui/button'
 import { exportLeadsToCSV } from '@/lib/exportToCSV'
-import type { SearchFormData, Lead, LeadStats, ScrapeJobResponse, JobWithLeads } from '@/types'
+import type { SearchFormData, Lead, LeadStats, ScrapeJobResponse, JobWithLeads, ContactDiscoveryResponse } from '@/types'
 
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([])
@@ -15,11 +15,15 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [jobDetails, setJobDetails] = useState<{ keyword: string; location: string } | null>(null)
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null)
+  const [isFindingContacts, setIsFindingContacts] = useState(false)
+  const [contactDiscoveryStatus, setContactDiscoveryStatus] = useState<string | null>(null)
 
   const stats: LeadStats = {
     totalLeads: leads.length,
     leadsWithWebsites: leads.filter((lead) => lead.website).length,
     leadsWithEmails: leads.filter((lead) => lead.email).length,
+    leadsWithContacts: leads.filter((lead) => lead.contacts && lead.contacts.length > 0).length,
   }
 
   const handleSearch = async (data: SearchFormData) => {
@@ -53,6 +57,9 @@ export default function Home() {
 
       const scrapeResult: ScrapeJobResponse = await scrapeResponse.json()
       console.log('Scrape job created:', scrapeResult)
+
+      // Store job ID for later use
+      setCurrentJobId(scrapeResult.jobId)
 
       // Fetch job results
       console.log('Fetching job results...')
@@ -91,6 +98,62 @@ export default function Home() {
     }
   }
 
+  const handleFindContacts = async () => {
+    if (!currentJobId) {
+      console.error('No job ID available')
+      return
+    }
+
+    setIsFindingContacts(true)
+    setContactDiscoveryStatus('Finding decision makers...')
+    setError(null)
+
+    try {
+      console.log('Starting contact discovery for job:', currentJobId)
+      const response = await fetch('/api/find-contacts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: currentJobId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to find contacts')
+      }
+
+      const result: ContactDiscoveryResponse = await response.json()
+      console.log('Contact discovery result:', result)
+
+      // Show success message
+      setContactDiscoveryStatus(
+        `Found ${result.contactsFound} decision makers! (${result.emailsValidated} emails validated, ${result.quotaRemaining || 'N/A'} credits remaining)`
+      )
+
+      // Refresh leads to show new contacts
+      console.log('Refreshing job data...')
+      const jobResponse = await fetch(`/api/jobs/${currentJobId}`)
+
+      if (jobResponse.ok) {
+        const jobData: JobWithLeads = await jobResponse.json()
+        setLeads(jobData.leads)
+        console.log('Leads refreshed with new contacts')
+      }
+
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setContactDiscoveryStatus(null)
+      }, 5000)
+    } catch (err) {
+      console.error('Error finding contacts:', err)
+      setError(err instanceof Error ? err.message : 'Failed to find contacts')
+      setContactDiscoveryStatus(null)
+    } finally {
+      setIsFindingContacts(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Main Content */}
@@ -125,15 +188,49 @@ export default function Home() {
           </div>
         )}
 
+        {/* Success Message */}
+        {contactDiscoveryStatus && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-green-600 mt-0.5 mr-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium text-green-800">Success</h3>
+                <p className="text-sm text-green-700 mt-1">{contactDiscoveryStatus}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Results Section */}
         {hasSearched && !error && (
           <div className="space-y-6 animate-fade-in">
             {/* Stats Cards */}
             <StatsCards stats={stats} isLoading={isLoading} />
 
-            {/* Export Button */}
+            {/* Action Buttons */}
             {leads.length > 0 && !isLoading && (
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-3">
+                <Button
+                  onClick={handleFindContacts}
+                  variant="default"
+                  className="gap-2"
+                  disabled={isFindingContacts || !currentJobId}
+                >
+                  <Users className="h-4 w-4" />
+                  {isFindingContacts ? 'Finding Decision Makers...' : 'Find Decision Makers'}
+                </Button>
                 <Button
                   onClick={handleExportCSV}
                   variant="outline"

@@ -38,6 +38,9 @@ function TableSkeleton() {
             <div className="h-4 bg-gray-200 rounded animate-pulse w-40"></div>
           </TableCell>
           <TableCell>
+            <div className="h-4 bg-gray-200 rounded animate-pulse w-48"></div>
+          </TableCell>
+          <TableCell>
             <div className="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
           </TableCell>
           <TableCell>
@@ -103,6 +106,7 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                 <TableHead className="min-w-[150px]">Phone</TableHead>
                 <TableHead className="min-w-[200px]">Website</TableHead>
                 <TableHead className="min-w-[200px]">Email</TableHead>
+                <TableHead className="min-w-[250px]">Decision Makers</TableHead>
                 <TableHead className="min-w-[100px]">Rating</TableHead>
                 <TableHead className="min-w-[100px]">Reviews</TableHead>
               </TableRow>
@@ -160,6 +164,59 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                         <Badge variant="outline" className="text-xs">
                           Not found
                         </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {lead.contacts && lead.contacts.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {lead.contacts
+                            .filter(contact => contact.email)
+                            .slice(0, 3)
+                            .map((contact) => (
+                              <div key={contact.id} className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-medium text-gray-900 truncate">
+                                      {contact.fullName}
+                                    </span>
+                                    {contact.title && (
+                                      <span className="text-gray-500 font-normal text-xs">
+                                        ({contact.title})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <a
+                                      href={`mailto:${contact.email}`}
+                                      className="text-blue-600 hover:underline text-xs truncate"
+                                    >
+                                      {contact.email}
+                                    </a>
+                                    <span className="text-gray-400 text-xs shrink-0">
+                                      [{contact.source === 'team_page' ? 'Team' : 'Google'}]
+                                    </span>
+                                  </div>
+                                </div>
+                                {contact.emailStatus === 'valid' && (
+                                  <Badge variant="default" className="text-xs shrink-0">
+                                    ✓
+                                  </Badge>
+                                )}
+                                {contact.emailStatus === 'catch-all' && (
+                                  <Badge variant="secondary" className="text-xs shrink-0">
+                                    ~
+                                  </Badge>
+                                )}
+                              </div>
+                            ))}
+                          {lead.contacts.filter(c => c.email).length > 3 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              +{lead.contacts.filter(c => c.email).length - 3} more
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">No contacts yet</span>
                       )}
                     </TableCell>
                     <TableCell>
