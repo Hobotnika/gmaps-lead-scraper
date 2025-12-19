@@ -197,16 +197,6 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                                     </span>
                                   </div>
                                 </div>
-                                {contact.emailStatus === 'valid' && (
-                                  <Badge variant="default" className="text-xs shrink-0">
-                                    ✓
-                                  </Badge>
-                                )}
-                                {contact.emailStatus === 'catch-all' && (
-                                  <Badge variant="secondary" className="text-xs shrink-0">
-                                    ~
-                                  </Badge>
-                                )}
                               </div>
                             ))}
                           {lead.contacts.filter(c => c.email).length > 3 && (

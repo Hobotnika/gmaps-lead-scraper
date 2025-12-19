@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { findAllContacts, generateEmails, extractDomain } from '@/lib/contactDiscovery'
-import { validateEmail, getRemainingCredits } from '@/lib/zerobounce'
 import type { ContactDiscoveryResponse } from '@/types'
 
 /**
@@ -47,24 +46,12 @@ export async function POST(request: NextRequest) {
         emailsValidated: 0,
         quotaRemaining: null,
         leadsProcessed: 0,
-        errors: ['No leads found'],
       })
     }
 
     console.log(`Found ${leadsData.length} leads to process`)
 
-    // Check ZeroBounce credits
-    let quotaRemaining = await getRemainingCredits()
-
-    if (quotaRemaining !== null && quotaRemaining < 10) {
-      return NextResponse.json(
-        { error: `Low ZeroBounce credits: ${quotaRemaining} remaining. Need at least 10 to proceed.` },
-        { status: 400 }
-      )
-    }
-
     let totalContactsFound = 0
-    let totalEmailsValidated = 0
     let leadsProcessed = 0
     const errors: string[] = []
 
@@ -103,45 +90,18 @@ export async function POST(request: NextRequest) {
 
           console.log(`Generated ${emailVariations.length} email variations for ${contact.fullName}`)
 
-          // Validate emails and save first valid one
-          let validEmail: string | null = null
-          let emailStatus: 'valid' | 'invalid' | 'catch-all' | 'unknown' = 'unknown'
+          // Pick first email variation (no validation)
+          const email = emailVariations[0] || null
 
-          for (const email of emailVariations) {
-            // Check quota before each validation
-            if (quotaRemaining !== null && quotaRemaining <= 0) {
-              console.warn('ZeroBounce quota exhausted')
-              errors.push('ZeroBounce quota exhausted')
-              break
-            }
-
-            const validation = await validateEmail(email)
-            totalEmailsValidated++
-
-            if (quotaRemaining !== null) {
-              quotaRemaining--
-            }
-
-            if (validation.isValid || validation.status === 'catch-all') {
-              validEmail = email
-              emailStatus = validation.status
-              console.log(`Found valid email: ${email} (${emailStatus})`)
-              break
-            }
-
-            // Small delay between validations
-            await new Promise(resolve => setTimeout(resolve, 500))
-          }
-
-          // Save contact to database
+          // Save contact to database with pending status
           const { error: insertError } = await (supabase
             .from('contacts') as any)
             .insert({
               lead_id: lead.id,
               full_name: contact.fullName,
               title: contact.title || null,
-              email: validEmail,
-              email_status: emailStatus,
+              email: email,
+              email_status: 'pending',
               source: contact.source || 'team_page',
             })
 
@@ -150,11 +110,11 @@ export async function POST(request: NextRequest) {
             errors.push(`Failed to save ${contact.fullName}`)
           } else {
             totalContactsFound++
-            console.log(`Saved contact: ${contact.fullName}`)
+            console.log(`Saved contact: ${contact.fullName} with email: ${email}`)
           }
 
-          // Delay between contacts
-          await new Promise(resolve => setTimeout(resolve, 1000))
+          // Small delay between contacts
+          await new Promise(resolve => setTimeout(resolve, 500))
         }
 
         leadsProcessed++
@@ -168,20 +128,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Refresh quota
-    quotaRemaining = await getRemainingCredits()
-
     console.log(`Contact discovery completed:`)
     console.log(`- Contacts found: ${totalContactsFound}`)
-    console.log(`- Emails validated: ${totalEmailsValidated}`)
     console.log(`- Leads processed: ${leadsProcessed}`)
-    console.log(`- Quota remaining: ${quotaRemaining}`)
 
     return NextResponse.json<ContactDiscoveryResponse>({
       success: true,
       contactsFound: totalContactsFound,
-      emailsValidated: totalEmailsValidated,
-      quotaRemaining,
+      emailsValidated: 0,
+      quotaRemaining: null,
       leadsProcessed,
       errors: errors.length > 0 ? errors : undefined,
     })

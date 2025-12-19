@@ -1,6 +1,10 @@
 import axios from 'axios'
+import firstNames from './firstNames.json'
 
 const SERPER_API_URL = 'https://google.serper.dev/search'
+
+// Convert to Set for O(1) lookups
+const validFirstNames = new Set(firstNames)
 
 export interface GoogleSearchContact {
   fullName: string
@@ -92,8 +96,11 @@ export async function searchForDecisionMakers(
   // Deduplicate contacts by name
   const uniqueContacts = deduplicateContacts(contacts)
 
-  console.log(`Found ${uniqueContacts.length} unique contacts from Google for ${businessName}`)
-  return uniqueContacts
+  // Limit to 5 contacts max per business
+  const limitedContacts = uniqueContacts.slice(0, 5)
+
+  console.log(`Found ${limitedContacts.length} unique contacts from Google for ${businessName}`)
+  return limitedContacts
 }
 
 /**
@@ -197,6 +204,43 @@ function extractContactsFromText(text: string, businessName: string): GoogleSear
 }
 
 /**
+ * Validates if a text string is a valid person name
+ * Uses comprehensive first name database for validation
+ */
+function isValidName(text: string): boolean {
+  const words = text.trim().split(/\s+/)
+
+  // Must be 2-4 words
+  if (words.length < 2 || words.length > 4) {
+    console.log(`Rejected: ${text} - wrong word count (${words.length})`)
+    return false
+  }
+
+  // First word MUST be in valid names database
+  const firstName = words[0]
+  if (!validFirstNames.has(firstName)) {
+    console.log(`Rejected: ${text} - "${firstName}" not in name database`)
+    return false
+  }
+
+  // All words must start with capital letter
+  if (!words.every(w => /^[A-Z]/.test(w))) {
+    console.log(`Rejected: ${text} - not properly capitalized`)
+    return false
+  }
+
+  // Last name should be at least 2 characters
+  const lastName = words[words.length - 1]
+  if (lastName.length < 2) {
+    console.log(`Rejected: ${text} - last name too short (${lastName.length} chars)`)
+    return false
+  }
+
+  console.log(`✓ Accepted: ${text}`)
+  return true
+}
+
+/**
  * Parses full name into first and last name
  */
 function parseFullName(fullName: string): { fullName: string; firstName: string; lastName: string } | null {
@@ -211,8 +255,13 @@ function parseFullName(fullName: string): { fullName: string; firstName: string;
 
   if (filteredParts.length < 2) return null
 
+  const reconstructedName = filteredParts.join(' ')
+
+  // Validate the name before returning
+  if (!isValidName(reconstructedName)) return null
+
   return {
-    fullName: filteredParts.join(' '),
+    fullName: reconstructedName,
     firstName: filteredParts[0],
     lastName: filteredParts[filteredParts.length - 1],
   }

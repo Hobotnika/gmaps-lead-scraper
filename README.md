@@ -9,7 +9,8 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 - **Email Discovery:** Automatically find emails from business websites in a single scrape
 - **Decision Maker Discovery:** Find key contacts (CEO, Founder, etc.) from team pages AND Google search
 - **Dual-Source Contact Discovery:** Combine team page scraping with Google search for maximum coverage
-- **Email Validation:** Validate emails using ZeroBounce API to ensure deliverability
+- **Smart Name Validation:** 1,200+ name database filters out garbage text, extracts only real person names
+- **Zero API Costs:** Local-only name validation, no external API calls, fast O(1) lookups
 - **Duplicate Detection:** Intelligent deduplication prevents the same business from being saved twice
 - **Job History:** View and manage all past scrapes with detailed statistics
 - **CSV Export:** Download leads as CSV with decision makers for easy import into CRM tools
@@ -25,7 +26,6 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 - **Styling:** Tailwind CSS
 - **UI Components:** shadcn/ui
 - **Scraping:** Apify API
-- **Email Validation:** ZeroBounce API
 - **Google Search:** Serper API
 - **Web Scraping:** Cheerio + Axios
 
@@ -36,8 +36,7 @@ Before you begin, ensure you have:
 - Node.js 18+ installed
 - A Supabase account and project ([Create one here](https://supabase.com))
 - An Apify account and API token ([Sign up here](https://apify.com))
-- (Optional) A ZeroBounce account for email validation ([Sign up here](https://www.zerobounce.net) - 100 free validations/month)
-- (Optional) A Serper account for Google search ([Sign up here](https://serper.dev/signup) - 2,500 free searches/month)
+- A Serper account for Google search ([Sign up here](https://serper.dev/signup) - 2,500 free searches/month)
 
 ## Getting Started
 
@@ -67,10 +66,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 # Apify API Token
 APIFY_API_TOKEN=your-apify-api-token
 
-# ZeroBounce API Key (Optional - for email validation)
-ZEROBOUNCE_API_KEY=your-zerobounce-api-key
-
-# Serper API Key (Optional - for Google search to find decision makers)
+# Serper API Key (for Google search to find decision makers)
 SERPER_API_KEY=your-serper-api-key
 ```
 
@@ -80,23 +76,14 @@ SERPER_API_KEY=your-serper-api-key
 3. Copy the Project URL and anon/public key
 4. For the service role key, scroll down to "Service Role" section
 
-**Finding your ZeroBounce API key (Optional):**
-1. Sign up for a free ZeroBounce account at [zerobounce.net](https://www.zerobounce.net)
-2. You'll get 100 free email validations per month
-3. Go to your ZeroBounce dashboard
-4. Navigate to "API" section or "Settings"
-5. Copy your API key
-
-**Note:** The decision maker discovery feature will work without ZeroBounce, but emails won't be validated. Generic email extraction from business websites will continue to work normally.
-
-**Finding your Serper API key (Optional):**
+**Finding your Serper API key:**
 1. Sign up for a free Serper account at [serper.dev/signup](https://serper.dev/signup)
 2. You'll get 2,500 free Google searches per month
 3. Go to your Serper dashboard
 4. Navigate to "API Key" section
 5. Copy your API key
 
-**Note:** Google search enhances contact discovery by finding decision makers that may not be listed on business websites. Without Serper, only team page scraping will be used.
+**Note:** Serper is essential for finding decision makers via Google search. The system uses 3 searches per business to maximize contact discovery.
 
 ### 3. Set Up the Database
 
@@ -275,27 +262,29 @@ After running a scrape:
    - Works even for businesses without websites
 
 3. For each contact found:
+   - Strict name validation filters out garbage text
    - Generate 8 email variations (firstname@, first.last@, jsmith@, etc.)
-   - Validate emails using ZeroBounce API (if configured)
-   - Save contacts with valid emails to database
+   - Save first email variation with status 'pending'
+   - Maximum 5 contacts per business from Google
 4. View decision makers in the "Decision Makers" column
    - Source indicator shows [Team] or [Google]
 5. Export to CSV to get all data including decision makers
 
-**Email Validation Status:**
-- ✓ (Green badge) = Valid email
-- ~ (Gray badge) = Catch-all domain (email might work)
-- No badge = Not validated or pending
-
-**ZeroBounce Credits:**
-- Free tier: 100 validations/month
-- The system checks remaining credits before starting
-- Warns when credits are low (< 10 remaining)
+**Name Validation:**
+- **1,200+ Name Database:** Comprehensive list of common first names from US, Europe, Asia, Latin America, Middle East
+- **First Name Matching:** First word must be in valid names database (Leticia ✓, "Detail" ✗)
+- **Zero API Costs:** Local JSON file, no external API calls, works offline
+- **Fast O(1) Lookups:** Using JavaScript Set for instant validation
+- **Filters garbage:** Rejects "was very helpful", "We are hiring General", "Detail Name"
+- **Accepts real names:** "Leticia Pollock", "John Smith", "Maria Garcia", "Wei Chen"
+- **Requirements:** 2-4 words, properly capitalized, last name 2+ characters
+- **International coverage:** Includes Spanish, Italian, French, German, Chinese, Japanese, Indian, Arabic names
 
 **Serper Credits:**
 - Free tier: 2,500 Google searches/month
 - 3 searches per business (founders, CEO, managers)
 - Significantly increases contact discovery rate
+- Can process ~833 businesses per month on free tier
 
 ### CSV Export
 
@@ -390,8 +379,7 @@ In the Vercel dashboard, add these environment variables:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Settings → API → Project API keys → anon/public | `eyJhbGciOi...` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Settings → API → Project API keys → service_role | `eyJhbGciOi...` |
 | `APIFY_API_TOKEN` | Apify Dashboard → Settings → Integrations | `apify_api_...` |
-| `ZEROBOUNCE_API_KEY` (Optional) | ZeroBounce Dashboard → API Settings | `your-api-key...` |
-| `SERPER_API_KEY` (Optional) | Serper Dashboard → API Key | `your-api-key...` |
+| `SERPER_API_KEY` | Serper Dashboard → API Key | `your-api-key...` |
 
 **How to add in Vercel:**
 1. Go to your project in Vercel
@@ -401,7 +389,7 @@ In the Vercel dashboard, add these environment variables:
    - Value: `your-actual-value`
    - Environment: Select "Production", "Preview", and "Development"
 4. Click "Save"
-5. Repeat for all variables (4 required + 2 optional for enhanced decision maker discovery)
+5. Repeat for all 5 variables
 
 **4. Deploy**
 - Click "Deploy" button

@@ -128,7 +128,7 @@ export default function Home() {
 
       // Show success message
       setContactDiscoveryStatus(
-        `Found ${result.contactsFound} decision makers! (${result.emailsValidated} emails validated, ${result.quotaRemaining || 'N/A'} credits remaining)`
+        `Found ${result.contactsFound} decision makers from ${result.leadsProcessed} businesses!`
       )
 
       // Refresh leads to show new contacts
