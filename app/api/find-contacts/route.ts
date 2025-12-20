@@ -72,10 +72,7 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Count sources
-        const teamPageCount = contacts.filter(c => c.source === 'team_page').length
-        const googleCount = contacts.filter(c => c.source === 'google_search').length
-        console.log(`Found ${contacts.length} total contacts: ${teamPageCount} from team page, ${googleCount} from Google`)
+        console.log(`Found ${contacts.length} contacts from Google search`)
 
         const domain = lead.website ? extractDomain(lead.website) : lead.business_name.toLowerCase().replace(/\s+/g, '') + '.com'
 
@@ -102,7 +99,7 @@ export async function POST(request: NextRequest) {
               title: contact.title || null,
               email: email,
               email_status: 'pending',
-              source: contact.source || 'team_page',
+              source: contact.source || 'google_search',
             })
 
           if (insertError) {

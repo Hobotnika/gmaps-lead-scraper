@@ -112,6 +112,18 @@ export interface JobWithLeads {
   stats: LeadStats
 }
 
+// Market types (grouped scrapes by keyword + location)
+export interface Market {
+  keyword: string
+  location: string
+  scrapeCount: number
+  totalLeads: number
+  totalEmails: number
+  emailRate: number
+  latestScrape: string
+  jobIds: string[]
+}
+
 // Sample data for testing
 export const SAMPLE_LEADS: Lead[] = [
   {

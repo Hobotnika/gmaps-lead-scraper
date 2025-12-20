@@ -7,9 +7,9 @@ A custom lead generation tool built with Next.js 14 that scrapes Google Maps bus
 - **Smart Scraping:** Extract Google Maps business listings based on search queries and locations
 - **Comprehensive Data:** Get business name, address, phone, website, ratings, reviews, and category
 - **Email Discovery:** Automatically find emails from business websites in a single scrape
-- **Decision Maker Discovery:** Find key contacts (CEO, Founder, etc.) from team pages AND Google search
-- **Dual-Source Contact Discovery:** Combine team page scraping with Google search for maximum coverage
-- **Smart Name Validation:** 1,200+ name database filters out garbage text, extracts only real person names
+- **Decision Maker Discovery:** Find key contacts (CEO, Founder, etc.) using Google search
+- **Smart Name Validation:** 20,000+ international name database filters out garbage text
+- **International Support:** Italian, Spanish, French, German, Portuguese, Arabic, and more
 - **Zero API Costs:** Local-only name validation, no external API calls, fast O(1) lookups
 - **Duplicate Detection:** Intelligent deduplication prevents the same business from being saved twice
 - **Job History:** View and manage all past scrapes with detailed statistics
@@ -228,11 +228,7 @@ Stores decision maker contact information for each lead.
 | created_at | TIMESTAMP | Record creation time |
 | updated_at | TIMESTAMP | Last update timestamp |
 
-**Note:** Decision makers are discovered through dual sources:
-1. **Team Page Scraping:** Extracts contacts from /team, /about pages
-2. **Google Search:** Finds decision makers via targeted queries using Serper API
-
-Emails are validated using ZeroBounce API if configured.
+**Note:** Decision makers are discovered through Google search using Serper API. Team page scraping has been disabled as it was extracting navigation text instead of actual contacts.
 
 ## Usage
 
@@ -249,36 +245,36 @@ Emails are validated using ZeroBounce API if configured.
 After running a scrape:
 
 1. Click "Find Decision Makers" button above the results table
-2. The system will use TWO sources to maximize contact discovery:
-
-   **Source 1: Team Page Scraping**
-   - Visits team/about pages for businesses with websites
-   - Extracts structured contact information
-   - More reliable for companies with good websites
-
-   **Source 2: Google Search (via Serper)**
+2. The system uses Google search (via Serper) to find decision makers:
    - Searches Google for "founders of [Business]", "[Business] CEO", etc.
-   - Finds decision makers not listed on websites
-   - Works even for businesses without websites
+   - Finds decision makers even for businesses without websites
+   - Works with businesses in any location worldwide
 
 3. For each contact found:
-   - Strict name validation filters out garbage text
-   - Generate 8 email variations (firstname@, first.last@, jsmith@, etc.)
-   - Save first email variation with status 'pending'
-   - Maximum 5 contacts per business from Google
+   - Strict name validation using 20,000+ international name database
+   - Filters out garbage text like "was very helpful" or "Detail Name"
+   - Accepts real names: "Saverio Castellaneta", "Jean Dupont", "Klaus Schmidt"
+   - Generates 8 email variations (firstname@, first.last@, jsmith@, etc.)
+   - Saves first email variation with status 'pending'
+   - Maximum 15 contacts per business
+
 4. View decision makers in the "Decision Makers" column
-   - Source indicator shows [Team] or [Google]
+   - Source indicator shows [Google]
+
 5. Export to CSV to get all data including decision makers
 
 **Name Validation:**
-- **1,200+ Name Database:** Comprehensive list of common first names from US, Europe, Asia, Latin America, Middle East
-- **First Name Matching:** First word must be in valid names database (Leticia ✓, "Detail" ✗)
+- **20,000+ International Name Database:** Comprehensive list from NameDatabases repository
+- **Italian Names:** Saverio, Fulvio, Alfonso, Luca, Marco, Giovanni, Francesco, etc.
+- **Spanish Names:** Javier, Raul, Sergio, Pablo, Miguel, etc.
+- **French Names:** Pierre, Jean, Antoine, François, Jacques, etc.
+- **German Names:** Klaus, Hans, Otto, Wolfgang, Helmut, etc.
+- **Arabic Names:** Ahmed, Hassan, Fatima, Omar, Khalil, etc.
 - **Zero API Costs:** Local JSON file, no external API calls, works offline
 - **Fast O(1) Lookups:** Using JavaScript Set for instant validation
 - **Filters garbage:** Rejects "was very helpful", "We are hiring General", "Detail Name"
-- **Accepts real names:** "Leticia Pollock", "John Smith", "Maria Garcia", "Wei Chen"
+- **Accepts real names:** "Saverio Castellaneta", "John Smith", "Wei Chen", "Jean Dupont"
 - **Requirements:** 2-4 words, properly capitalized, last name 2+ characters
-- **International coverage:** Includes Spanish, Italian, French, German, Chinese, Japanese, Indian, Arabic names
 
 **Serper Credits:**
 - Free tier: 2,500 Google searches/month

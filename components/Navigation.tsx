@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Search, History } from 'lucide-react'
+import { Search, History, BarChart3 } from 'lucide-react'
 
 export function Navigation() {
   const pathname = usePathname()
@@ -33,6 +33,10 @@ export function Navigation() {
             <Link href="/history" className={linkClass('/history')}>
               <History className="h-4 w-4" />
               History
+            </Link>
+            <Link href="/markets" className={linkClass('/markets')}>
+              <BarChart3 className="h-4 w-4" />
+              Markets
             </Link>
           </div>
 
