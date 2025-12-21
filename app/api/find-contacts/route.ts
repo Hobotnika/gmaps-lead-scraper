@@ -61,11 +61,7 @@ export async function POST(request: NextRequest) {
         console.log(`\n=== Processing lead: ${lead.business_name} ===`)
 
         // Find contacts from both team pages and Google search
-        const contacts = await findAllContacts(
-          lead.website,
-          lead.business_name,
-          lead.address
-        )
+        const contacts = await findAllContacts(lead)
 
         if (contacts.length === 0) {
           console.log(`No contacts found for ${lead.business_name}`)

@@ -13,7 +13,7 @@ export interface Contact {
   title: string | null
   email: string | null
   emailStatus: 'valid' | 'invalid' | 'catch-all' | 'unknown' | 'pending' | null
-  source: 'team_page' | 'google_search'
+  source: 'google_search' | 'firecrawl'
   createdAt: string
 }
 

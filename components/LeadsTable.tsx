@@ -193,7 +193,7 @@ export function LeadsTable({ leads, isLoading = false }: LeadsTableProps) {
                                       {contact.email}
                                     </a>
                                     <span className="text-gray-400 text-xs shrink-0">
-                                      [{contact.source === 'team_page' ? 'Team' : 'Google'}]
+                                      [{contact.source === 'google_search' ? 'Google' : 'Firecrawl'}]
                                     </span>
                                   </div>
                                 </div>

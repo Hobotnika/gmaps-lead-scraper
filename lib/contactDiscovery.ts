@@ -1,11 +1,13 @@
 import { searchForDecisionMakers } from './googleSearch'
+import { scrapeTeamPagesWithFirecrawl } from './firecrawlScraper'
+import type { Lead } from '@/types'
 
 export interface Contact {
   fullName: string
   firstName: string
   lastName: string
   title?: string
-  source?: 'google_search'
+  source?: 'google_search' | 'firecrawl'
 }
 
 /**
@@ -55,22 +57,60 @@ export function extractDomain(websiteUrl: string): string {
 }
 
 /**
- * Finds contacts using Google search only
- * Team page scraping was disabled (extracted navigation text instead of actual contacts)
- * @param websiteUrl - Business website URL (not used, kept for API compatibility)
- * @param businessName - Business name for Google search
- * @param location - Business location (optional)
- * @returns Array of contacts from Google search
+ * Finds contacts using dual-source discovery: Google search + Firecrawl team pages
+ * @param lead - Lead object with business info (database format with snake_case)
+ * @returns Array of contacts from both sources, deduplicated
  */
-export async function findAllContacts(
-  websiteUrl: string | null,
-  businessName: string,
-  location?: string
-): Promise<Contact[]> {
-  // Only use Google search (team scraper was extracting navigation text)
-  const googleResults = await searchForDecisionMakers(businessName, location)
+export async function findAllContacts(lead: any): Promise<Contact[]> {
+  const allContacts: Contact[] = []
 
+  // Source 1: Google Search
+  console.log(`\n=== Searching Google for: ${lead.business_name} ===`)
+  const googleResults = await searchForDecisionMakers(
+    lead.business_name,
+    lead.address
+  )
+  allContacts.push(...googleResults.map(c => ({ ...c, source: 'google_search' as const })))
   console.log(`Found ${googleResults.length} contacts from Google search`)
 
-  return googleResults.slice(0, 15)
+  // Source 2: Firecrawl Team Pages
+  if (lead.website && lead.website !== 'Not found') {
+    console.log(`\n=== Scraping team pages for: ${lead.business_name} ===`)
+    const firecrawlResults = await scrapeTeamPagesWithFirecrawl(lead.website)
+    allContacts.push(...firecrawlResults.map(c => ({
+      fullName: c.fullName,
+      firstName: c.fullName.split(' ')[0],
+      lastName: c.fullName.split(' ').slice(-1)[0],
+      title: c.title,
+      source: 'firecrawl' as const
+    })))
+    console.log(`Found ${firecrawlResults.length} contacts from Firecrawl`)
+  }
+
+  // Deduplicate by name (case-insensitive)
+  const uniqueContacts = deduplicateByName(allContacts)
+
+  console.log(`\nTotal unique contacts: ${uniqueContacts.length}`)
+  console.log(`Sources: ${uniqueContacts.filter(c => c.source === 'google_search').length} Google, ${uniqueContacts.filter(c => c.source === 'firecrawl').length} Firecrawl`)
+
+  return uniqueContacts.slice(0, 15)
+}
+
+function deduplicateByName(contacts: Contact[]): Contact[] {
+  const seen = new Map<string, Contact>()
+
+  for (const contact of contacts) {
+    const key = contact.fullName.toLowerCase()
+    if (!seen.has(key)) {
+      seen.set(key, contact)
+    } else {
+      // Prefer google_search source if duplicate
+      const existing = seen.get(key)!
+      if (contact.source === 'google_search' && existing.source !== 'google_search') {
+        seen.set(key, contact)
+      }
+    }
+  }
+
+  return Array.from(seen.values())
 }

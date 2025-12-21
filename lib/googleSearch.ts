@@ -207,7 +207,7 @@ function extractContactsFromText(text: string, businessName: string): GoogleSear
  * Validates if a text string is a valid person name
  * Uses comprehensive first name database for validation
  */
-function isValidName(text: string): boolean {
+export function isValidName(text: string): boolean {
   const words = text.trim().split(/\s+/)
 
   // Must be 2-4 words
