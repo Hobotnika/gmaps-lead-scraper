@@ -18,6 +18,7 @@ export default function Home() {
   const [currentJobId, setCurrentJobId] = useState<string | null>(null)
   const [isFindingContacts, setIsFindingContacts] = useState(false)
   const [contactDiscoveryStatus, setContactDiscoveryStatus] = useState<string | null>(null)
+  const [spreadsheetUrl, setSpreadsheetUrl] = useState<string | null>(null)
 
   const stats: LeadStats = {
     totalLeads: leads.length,
@@ -58,8 +59,12 @@ export default function Home() {
       const scrapeResult: ScrapeJobResponse = await scrapeResponse.json()
       console.log('Scrape job created:', scrapeResult)
 
-      // Store job ID for later use
+      // Store job ID and spreadsheet URL for later use
       setCurrentJobId(scrapeResult.jobId)
+      if (scrapeResult.spreadsheetUrl) {
+        setSpreadsheetUrl(scrapeResult.spreadsheetUrl)
+        console.log('Google Sheets URL:', scrapeResult.spreadsheetUrl)
+      }
 
       // Fetch job results
       console.log('Fetching job results...')
@@ -224,6 +229,28 @@ export default function Home() {
           <div className="space-y-6 animate-fade-in">
             {/* Stats Cards */}
             <StatsCards stats={stats} isLoading={isLoading} />
+
+            {/* Google Sheets Link */}
+            {spreadsheetUrl && !isLoading && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-800">✅ Exported to Google Sheets CRM</p>
+                    <a
+                      href={spreadsheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-green-600 hover:text-green-700 hover:underline"
+                    >
+                      Open spreadsheet →
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons */}
             {leads.length > 0 && !isLoading && (

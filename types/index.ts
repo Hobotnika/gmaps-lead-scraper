@@ -84,6 +84,7 @@ export interface ScrapeJobResponse {
   updatedCount?: number
   leadsWithWebsites: number
   leadsWithEmails: number
+  spreadsheetUrl?: string
 }
 
 // Job types for history

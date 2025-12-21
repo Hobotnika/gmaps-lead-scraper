@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ApifyClient } from 'apify-client'
 import { createAdminClient } from '@/lib/supabase'
-import type { SearchFormData, ApifyPlace } from '@/types'
+import { appendLeadsToSheet } from '@/lib/googleSheets'
+import type { SearchFormData, ApifyPlace, Lead } from '@/types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -209,6 +210,18 @@ export async function POST(request: NextRequest) {
       const leadsWithWebsites = allLeads.filter((lead) => lead.website).length
       const leadsWithEmails = allLeads.filter((lead) => lead.email).length
 
+      // Export to Google Sheets
+      console.log('Exporting leads to Google Sheets...')
+      const spreadsheetUrl = await appendLeadsToSheet(allLeads as Lead[], {
+        keyword,
+        location,
+        jobId: jobData.id,
+      })
+
+      if (spreadsheetUrl) {
+        console.log(`✅ Leads exported to Google Sheets: ${spreadsheetUrl}`)
+      }
+
       // Update job status to completed
       await (supabase
         .from('scrape_jobs') as any)
@@ -225,6 +238,7 @@ export async function POST(request: NextRequest) {
         updatedCount,
         leadsWithWebsites,
         leadsWithEmails,
+        spreadsheetUrl: spreadsheetUrl || 'Not configured',
       })
 
       return NextResponse.json({
@@ -235,6 +249,7 @@ export async function POST(request: NextRequest) {
         updatedCount,
         leadsWithWebsites,
         leadsWithEmails,
+        spreadsheetUrl: spreadsheetUrl || undefined,
       })
     } catch (apifyError) {
       // Apify API call failed
