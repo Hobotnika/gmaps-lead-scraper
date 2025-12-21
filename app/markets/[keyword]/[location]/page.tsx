@@ -129,10 +129,16 @@ export default function MarketDetailPage({ params }: PageProps) {
       const result = await response.json()
       console.log('Contact discovery result:', result)
 
-      // Show success message
-      setContactDiscoveryStatus(
-        `Found ${result.totalContactsFound} decision makers across ${result.jobsProcessed} scrapes!`
-      )
+      // Show success message with Firecrawl warning if applicable
+      if (result.firecrawlCreditsExhausted) {
+        setContactDiscoveryStatus(
+          `⚠️ Found ${result.totalContactsFound} decision makers from Google search only. Firecrawl credits exhausted - team page scraping skipped this month.`
+        )
+      } else {
+        setContactDiscoveryStatus(
+          `Found ${result.totalContactsFound} decision makers across ${result.jobsProcessed} scrapes!`
+        )
+      }
 
       // Refresh market data to show new contacts
       console.log('Refreshing market data...')

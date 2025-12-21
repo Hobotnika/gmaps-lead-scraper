@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     let totalContactsFound = 0
     let leadsProcessed = 0
+    let firecrawlCreditsExhausted = false
     const errors: string[] = []
 
     // Process each lead
@@ -61,19 +62,24 @@ export async function POST(request: NextRequest) {
         console.log(`\n=== Processing lead: ${lead.business_name} ===`)
 
         // Find contacts from both team pages and Google search
-        const contacts = await findAllContacts(lead)
+        const result = await findAllContacts(lead)
 
-        if (contacts.length === 0) {
+        // Track if Firecrawl credits were exhausted
+        if (result.firecrawlCreditsExhausted) {
+          firecrawlCreditsExhausted = true
+        }
+
+        if (result.contacts.length === 0) {
           console.log(`No contacts found for ${lead.business_name}`)
           continue
         }
 
-        console.log(`Found ${contacts.length} contacts from Google search`)
+        console.log(`Found ${result.contacts.length} contacts from Google search`)
 
         const domain = lead.website ? extractDomain(lead.website) : lead.business_name.toLowerCase().replace(/\s+/g, '') + '.com'
 
         // Process each contact
-        for (const contact of contacts) {
+        for (const contact of result.contacts) {
           // Generate email variations
           const emailVariations = generateEmails(
             contact.firstName,
@@ -124,6 +130,7 @@ export async function POST(request: NextRequest) {
     console.log(`Contact discovery completed:`)
     console.log(`- Contacts found: ${totalContactsFound}`)
     console.log(`- Leads processed: ${leadsProcessed}`)
+    console.log(`- Firecrawl credits exhausted: ${firecrawlCreditsExhausted}`)
 
     return NextResponse.json<ContactDiscoveryResponse>({
       success: true,
@@ -131,6 +138,7 @@ export async function POST(request: NextRequest) {
       emailsValidated: 0,
       quotaRemaining: null,
       leadsProcessed,
+      firecrawlCreditsExhausted,
       errors: errors.length > 0 ? errors : undefined,
     })
 

@@ -49,6 +49,7 @@ export interface ContactDiscoveryResponse {
   emailsValidated: number
   quotaRemaining: number | null
   leadsProcessed: number
+  firecrawlCreditsExhausted?: boolean
   errors?: string[]
 }
 

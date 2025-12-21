@@ -126,10 +126,16 @@ export default function Home() {
       const result: ContactDiscoveryResponse = await response.json()
       console.log('Contact discovery result:', result)
 
-      // Show success message
-      setContactDiscoveryStatus(
-        `Found ${result.contactsFound} decision makers from ${result.leadsProcessed} businesses!`
-      )
+      // Show success message with Firecrawl warning if applicable
+      if (result.firecrawlCreditsExhausted) {
+        setContactDiscoveryStatus(
+          `⚠️ Found ${result.contactsFound} decision makers from Google search only. Firecrawl credits exhausted - team page scraping skipped this month.`
+        )
+      } else {
+        setContactDiscoveryStatus(
+          `Found ${result.contactsFound} decision makers from ${result.leadsProcessed} businesses!`
+        )
+      }
 
       // Refresh leads to show new contacts
       console.log('Refreshing job data...')

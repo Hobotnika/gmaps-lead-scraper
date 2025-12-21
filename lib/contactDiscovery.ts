@@ -10,6 +10,11 @@ export interface Contact {
   source?: 'google_search' | 'firecrawl'
 }
 
+export interface ContactDiscoveryResult {
+  contacts: Contact[]
+  firecrawlCreditsExhausted: boolean
+}
+
 /**
  * Generates email variations for a contact
  * @param firstName - First name
@@ -59,10 +64,11 @@ export function extractDomain(websiteUrl: string): string {
 /**
  * Finds contacts using dual-source discovery: Google search + Firecrawl team pages
  * @param lead - Lead object with business info (database format with snake_case)
- * @returns Array of contacts from both sources, deduplicated
+ * @returns Object with contacts array and Firecrawl credit status
  */
-export async function findAllContacts(lead: any): Promise<Contact[]> {
+export async function findAllContacts(lead: any): Promise<ContactDiscoveryResult> {
   const allContacts: Contact[] = []
+  let firecrawlCreditsExhausted = false
 
   // Source 1: Google Search
   console.log(`\n=== Searching Google for: ${lead.business_name} ===`)
@@ -76,15 +82,21 @@ export async function findAllContacts(lead: any): Promise<Contact[]> {
   // Source 2: Firecrawl Team Pages
   if (lead.website && lead.website !== 'Not found') {
     console.log(`\n=== Scraping team pages for: ${lead.business_name} ===`)
-    const firecrawlResults = await scrapeTeamPagesWithFirecrawl(lead.website)
-    allContacts.push(...firecrawlResults.map(c => ({
+    const firecrawlResult = await scrapeTeamPagesWithFirecrawl(lead.website)
+
+    // Track if Firecrawl credits were exhausted
+    if (firecrawlResult.creditsExhausted) {
+      firecrawlCreditsExhausted = true
+    }
+
+    allContacts.push(...firecrawlResult.contacts.map(c => ({
       fullName: c.fullName,
       firstName: c.fullName.split(' ')[0],
       lastName: c.fullName.split(' ').slice(-1)[0],
       title: c.title,
       source: 'firecrawl' as const
     })))
-    console.log(`Found ${firecrawlResults.length} contacts from Firecrawl`)
+    console.log(`Found ${firecrawlResult.contacts.length} contacts from Firecrawl`)
   }
 
   // Deduplicate by name (case-insensitive)
@@ -93,7 +105,10 @@ export async function findAllContacts(lead: any): Promise<Contact[]> {
   console.log(`\nTotal unique contacts: ${uniqueContacts.length}`)
   console.log(`Sources: ${uniqueContacts.filter(c => c.source === 'google_search').length} Google, ${uniqueContacts.filter(c => c.source === 'firecrawl').length} Firecrawl`)
 
-  return uniqueContacts.slice(0, 15)
+  return {
+    contacts: uniqueContacts.slice(0, 15),
+    firecrawlCreditsExhausted
+  }
 }
 
 function deduplicateByName(contacts: Contact[]): Contact[] {

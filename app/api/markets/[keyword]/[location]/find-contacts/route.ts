@@ -7,6 +7,7 @@ interface MarketContactDiscoveryResponse {
   totalContactsFound: number
   jobsProcessed: number
   totalLeadsProcessed: number
+  firecrawlCreditsExhausted?: boolean
   errors?: string[]
 }
 
@@ -51,6 +52,7 @@ export async function POST(
     let totalContactsFound = 0
     let totalLeadsProcessed = 0
     let jobsProcessed = 0
+    let firecrawlCreditsExhausted = false
     const errors: string[] = []
 
     // Process each job sequentially
@@ -97,19 +99,24 @@ export async function POST(
             }
 
             // Find contacts from both team pages and Google search
-            const contacts = await findAllContacts(lead)
+            const result = await findAllContacts(lead)
 
-            if (contacts.length === 0) {
+            // Track if Firecrawl credits were exhausted
+            if (result.firecrawlCreditsExhausted) {
+              firecrawlCreditsExhausted = true
+            }
+
+            if (result.contacts.length === 0) {
               console.log(`No contacts found for ${lead.business_name}`)
               continue
             }
 
-            console.log(`Found ${contacts.length} contacts from Google search`)
+            console.log(`Found ${result.contacts.length} contacts from Google search`)
 
             const domain = lead.website ? extractDomain(lead.website) : lead.business_name.toLowerCase().replace(/\s+/g, '') + '.com'
 
             // Process each contact
-            for (const contact of contacts) {
+            for (const contact of result.contacts) {
               // Generate email variations
               const emailVariations = generateEmails(
                 contact.firstName,
@@ -172,12 +179,14 @@ export async function POST(
     console.log(`- Total contacts found: ${totalContactsFound}`)
     console.log(`- Jobs processed: ${jobsProcessed}`)
     console.log(`- Leads processed: ${totalLeadsProcessed}`)
+    console.log(`- Firecrawl credits exhausted: ${firecrawlCreditsExhausted}`)
 
     return NextResponse.json<MarketContactDiscoveryResponse>({
       success: true,
       totalContactsFound,
       jobsProcessed,
       totalLeadsProcessed,
+      firecrawlCreditsExhausted,
       errors: errors.length > 0 ? errors : undefined,
     })
 

@@ -6,6 +6,11 @@ interface ScrapedContact {
   title: string;
 }
 
+export interface FirecrawlResult {
+  contacts: ScrapedContact[];
+  creditsExhausted: boolean;
+}
+
 const firecrawl = new FirecrawlApp({
   apiKey: process.env.FIRECRAWL_API_KEY
 });
@@ -18,7 +23,7 @@ const TEAM_PATHS = [
 
 export async function scrapeTeamPagesWithFirecrawl(
   websiteUrl: string
-): Promise<ScrapedContact[]> {
+): Promise<FirecrawlResult> {
   const contacts: ScrapedContact[] = [];
   const baseUrl = websiteUrl.replace(/\/$/, ''); // Remove trailing slash
 
@@ -41,7 +46,7 @@ export async function scrapeTeamPagesWithFirecrawl(
 
     if (account.credits === 0) {
       console.error('❌ FIRECRAWL CREDITS EXHAUSTED - Skipping team page scraping this month');
-      return [];
+      return { contacts: [], creditsExhausted: true };
     }
   } catch (error: any) {
     console.log('Could not check Firecrawl balance:', error.message);
@@ -104,7 +109,7 @@ export async function scrapeTeamPagesWithFirecrawl(
     }
   }
 
-  return deduplicateContacts(contacts);
+  return { contacts: deduplicateContacts(contacts), creditsExhausted: false };
 }
 
 function extractContactsFromMarkdown(markdown: string): ScrapedContact[] {
