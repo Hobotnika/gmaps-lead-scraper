@@ -13,12 +13,7 @@ const firecrawl = new FirecrawlApp({
 const TEAM_PATHS = [
   '/about',
   '/team',
-  '/about-us',
-  '/our-team',
-  '/leadership',
-  '/people',
-  '/meet-the-team',
-  '/founders'
+  '/our-team'
 ];
 
 export async function scrapeTeamPagesWithFirecrawl(
@@ -44,6 +39,8 @@ export async function scrapeTeamPagesWithFirecrawl(
 
       if (!result.markdown) {
         console.log(`Failed to scrape ${url}: No content returned`);
+        // Add delay before next request to avoid rate limits
+        await new Promise(resolve => setTimeout(resolve, 6000));
         continue;
       }
 
@@ -53,15 +50,32 @@ export async function scrapeTeamPagesWithFirecrawl(
       if (pageContacts.length > 0) {
         console.log(`Found ${pageContacts.length} contacts on ${path}`);
         contacts.push(...pageContacts);
-      }
-
-      // Stop after finding contacts on one page
-      if (contacts.length >= 5) {
+        // Stop immediately after finding contacts to save credits
+        console.log(`Found contacts, stopping to save Firecrawl credits`);
         break;
       }
 
+      // Add delay between requests to respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 6000));
+
     } catch (error: any) {
       console.log(`Failed to scrape ${url}: ${error.message}`);
+
+      // Handle rate limit errors gracefully
+      if (error.message && error.message.includes('Rate limit exceeded')) {
+        console.log(`Rate limit hit, skipping remaining URLs to avoid hanging`);
+        break;
+      }
+
+      // Handle timeout errors
+      if (error.message && error.message.includes('timed out')) {
+        console.log(`Timeout on ${url}, trying next URL`);
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        continue;
+      }
+
+      // Add delay before next request even on error
+      await new Promise(resolve => setTimeout(resolve, 6000));
       continue;
     }
   }
