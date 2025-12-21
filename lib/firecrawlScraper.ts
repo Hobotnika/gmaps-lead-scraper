@@ -24,6 +24,30 @@ export async function scrapeTeamPagesWithFirecrawl(
 
   console.log(`\nScraping team pages with Firecrawl for: ${baseUrl}`);
 
+  // Check Firecrawl credits before scraping
+  try {
+    const response = await fetch('https://api.firecrawl.dev/v1/account', {
+      headers: {
+        'Authorization': `Bearer ${process.env.FIRECRAWL_API_KEY}`
+      }
+    });
+
+    const account = await response.json();
+    console.log(`🔥 Firecrawl credits remaining: ${account.credits || 'unknown'}`);
+
+    if (account.credits !== undefined && account.credits < 10) {
+      console.warn('⚠️  WARNING: Firecrawl credits low! Less than 10 remaining.');
+    }
+
+    if (account.credits === 0) {
+      console.error('❌ FIRECRAWL CREDITS EXHAUSTED - Skipping team page scraping this month');
+      return [];
+    }
+  } catch (error: any) {
+    console.log('Could not check Firecrawl balance:', error.message);
+    // Continue anyway - don't block on balance check failure
+  }
+
   for (const path of TEAM_PATHS) {
     const url = `${baseUrl}${path}`;
 
