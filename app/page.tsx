@@ -148,8 +148,13 @@ export default function Home() {
 
       if (jobResponse.ok) {
         const jobData: JobWithLeads = await jobResponse.json()
+        console.log('Refreshed leads:', jobData.leads.map(l => ({
+          name: l.businessName,
+          contactCount: l.contacts?.length || 0,
+          hasContacts: !!l.contacts && l.contacts.length > 0
+        })))
         setLeads(jobData.leads)
-        console.log('Leads refreshed with new contacts')
+        console.log(`Leads refreshed: ${jobData.leads.length} total, ${jobData.leads.filter(l => l.contacts && l.contacts.length > 0).length} with contacts`)
       }
 
       // Clear success message after 5 seconds

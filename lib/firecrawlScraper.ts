@@ -31,25 +31,32 @@ export async function scrapeTeamPagesWithFirecrawl(
 
   // Check Firecrawl credits before scraping
   try {
-    const response = await fetch('https://api.firecrawl.dev/v1/account', {
+    const response = await fetch('https://api.firecrawl.dev/v0/account', {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.FIRECRAWL_API_KEY}`
+        'Authorization': `Bearer ${process.env.FIRECRAWL_API_KEY}`,
+        'Content-Type': 'application/json'
       }
     });
 
-    const account = await response.json();
-    console.log(`🔥 Firecrawl credits remaining: ${account.credits || 'unknown'}`);
+    if (!response.ok) {
+      console.log(`Firecrawl balance check failed with status ${response.status} (non-blocking)`);
+      // Skip balance check, continue scraping
+    } else {
+      const account = await response.json();
+      console.log(`🔥 Firecrawl credits remaining: ${account.credits || 'unknown'}`);
 
-    if (account.credits !== undefined && account.credits < 10) {
-      console.warn('⚠️  WARNING: Firecrawl credits low! Less than 10 remaining.');
-    }
+      if (account.credits !== undefined && account.credits < 10) {
+        console.warn('⚠️  WARNING: Firecrawl credits low! Less than 10 remaining.');
+      }
 
-    if (account.credits === 0) {
-      console.error('❌ FIRECRAWL CREDITS EXHAUSTED - Skipping team page scraping this month');
-      return { contacts: [], creditsExhausted: true };
+      if (account.credits === 0) {
+        console.error('❌ FIRECRAWL CREDITS EXHAUSTED - Skipping team page scraping this month');
+        return { contacts: [], creditsExhausted: true };
+      }
     }
   } catch (error: any) {
-    console.log('Could not check Firecrawl balance:', error.message);
+    console.log('Firecrawl balance check error (non-blocking):', error.message);
     // Continue anyway - don't block on balance check failure
   }
 
